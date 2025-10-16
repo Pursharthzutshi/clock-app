@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "New Native Clock",
+    "slug": "new-native-clock",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f8f5ef"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f8f5ef"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
