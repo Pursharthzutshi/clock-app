@@ -8,22 +8,15 @@ import {
   Switch,
   Text,
   TextInput,
-  useWindowDimensions,
   View
 } from "react-native";
 
 const BACKGROUND_COLOR = "#f5f7ff";
-const CLOCK_FACE_COLOR = "#ffffff";
-const CLOCK_LINE_COLOR = "#1b2240";
 const ACCENT_COLOR = "#1b2240";
-const SECOND_HAND_COLOR = "#ff6b6b";
 const NAV_BACKGROUND = "rgba(255, 255, 255, 0.88)";
 const PRIMARY_ACCENT = "#5c6cff";
 const TEXT_MUTED = "#7883ad";
 const TEXT_SUBTLE = "#a0a9c7";
-const CARD_ACCENT = "rgba(92, 108, 255, 0.18)";
-const CLOCK_GLOW_PRIMARY = "rgba(92, 108, 255, 0.18)";
-const CLOCK_GLOW_SECONDARY = "rgba(156, 168, 255, 0.22)";
 const SWITCH_TRACK_OFF = "rgba(120, 132, 173, 0.32)";
 
 const NAV_ITEMS = [
@@ -32,14 +25,6 @@ const NAV_ITEMS = [
   { key: "timer", label: "Timer", icon: "⏳" },
   { key: "stopwatch", label: "Stopwatch", icon: "⏱" }
 ];
-
-const HOUR_LABELS = Array.from({ length: 12 }, (_, index) => {
-  const label = index === 11 ? "12" : String(index + 1);
-  const angle = index * 30 - 60; // 12 o'clock is -90deg, so start 1 at -60deg
-  return { label, angle };
-});
-
-const TICK_MARKS = Array.from({ length: 60 }, (_, index) => index);
 
 const formatTime = (date) => {
   const hours = date.getHours();
@@ -166,34 +151,11 @@ export default function App() {
   const [alarms, setAlarms] = useState(INITIAL_ALARMS);
   const [alarmEditorState, setAlarmEditorState] = useState(null);
   const [accentHue] = useState(() => Math.floor(Math.random() * 360));
-  const { width } = useWindowDimensions();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const clockSize = Math.min(width * 0.85, 320);
-  const clockRadius = clockSize / 2;
-  const hourHandLength = clockRadius * 0.45;
-  const minuteHandLength = clockRadius * 0.68;
-  const secondHandLength = clockRadius * 0.75;
-
-  const { hoursAngle, minutesAngle, secondsAngle } = useMemo(() => {
-    const hours = time.getHours() % 12;
-    const minutes = time.getMinutes();
-    const seconds = time.getSeconds();
-
-    const secondsAngleValue = seconds * 6;
-    const minutesAngleValue = minutes * 6 + seconds * 0.1;
-    const hoursAngleValue = hours * 30 + minutes * 0.5 + seconds * (0.5 / 60);
-
-    return {
-      hoursAngle: hoursAngleValue,
-      minutesAngle: minutesAngleValue,
-      secondsAngle: secondsAngleValue
-    };
-  }, [time]);
 
   const { displayHour, minuteText, period } = useMemo(
     () => formatTime(time),
@@ -201,6 +163,27 @@ export default function App() {
   );
 
   const formattedDate = useMemo(() => formatFullDate(time), [time]);
+
+  const accentPrimary = useMemo(
+    () => `hsl(${accentHue}, 72%, 58%)`,
+    [accentHue]
+  );
+  const accentSoftBackground = useMemo(
+    () => `hsla(${accentHue}, 85%, 60%, 0.15)`,
+    [accentHue]
+  );
+
+  const timezoneText = useMemo(() => {
+    const offsetMinutes = time.getTimezoneOffset();
+    const offsetSign = offsetMinutes <= 0 ? "+" : "-";
+    const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60)
+      .toString()
+      .padStart(2, "0");
+    const offsetRemainder = (Math.abs(offsetMinutes) % 60)
+      .toString()
+      .padStart(2, "0");
+    return `UTC${offsetSign}${offsetHours}:${offsetRemainder}`;
+  }, [time]);
 
   const handleToggleAlarm = useCallback((alarmId) => {
     setAlarms((prev) =>
@@ -275,21 +258,40 @@ export default function App() {
         );
       case "clock":
         return (
-          <AuroraClockCard
-            time={time}
-            clockRadius={clockRadius}
-            clockSize={clockSize}
-            hourHandLength={hourHandLength}
-            minuteHandLength={minuteHandLength}
-            secondHandLength={secondHandLength}
-            hoursAngle={hoursAngle}
-            minutesAngle={minutesAngle}
-            secondsAngle={secondsAngle}
-            displayHour={displayHour}
-            minuteText={minuteText}
-            period={period}
-            accentHue={accentHue}
-          />
+          <View style={styles.timeCard}>
+            <View style={styles.timeHeader}>
+              <View
+                style={[styles.timeBadge, { backgroundColor: accentSoftBackground }]}
+              >
+                <Text style={[styles.timeBadgeText, { color: accentPrimary }]}>Live</Text>
+              </View>
+              <Text style={styles.timeTitle}>Current time</Text>
+              <Text style={styles.timeSubtitle}>Synced across your day</Text>
+            </View>
+
+            <View style={styles.timeDisplayRow}>
+              <Text style={styles.timeValue}>{displayHour}</Text>
+              <Text style={styles.timeSeparator}>:</Text>
+              <Text style={styles.timeValue}>{minuteText}</Text>
+              <Text style={[styles.timePeriod, { color: accentPrimary }]}>
+                {period}
+              </Text>
+            </View>
+
+            <View style={styles.timeMetaRow}>
+              <View style={styles.timeMetaBlock}>
+                <Text style={styles.timeMetaLabel}>Today</Text>
+                <Text style={styles.timeMetaValue}>{formattedDate}</Text>
+              </View>
+              <View
+                style={[styles.timeMetaPill, { borderColor: accentSoftBackground }]}
+              >
+                <Text style={[styles.timeMetaPillText, { color: accentPrimary }]}>
+                  {timezoneText}
+                </Text>
+              </View>
+            </View>
+          </View>
         );
       case "timer":
         return (
@@ -321,22 +323,16 @@ export default function App() {
   }, [
     activeTab,
     alarms,
-    clockRadius,
-    clockSize,
     displayHour,
-    hourHandLength,
-    hoursAngle,
-    minuteHandLength,
-    minutesAngle,
     handleAddAlarm,
     handleEditAlarm,
     handleToggleAlarm,
     minuteText,
     period,
-    secondHandLength,
-    secondsAngle,
-    accentHue,
-    time
+    formattedDate,
+    timezoneText,
+    accentPrimary,
+    accentSoftBackground
   ]);
 
   return (
@@ -552,243 +548,101 @@ const styles = StyleSheet.create({
     borderColor: "rgba(120, 132, 173, 0.14)",
     gap: 16
   },
-  clockCard: {
+  timeCard: {
     width: "100%",
-    backgroundColor: "rgba(255, 255, 255, 0.82)",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    alignItems: "center",
+    paddingHorizontal: 28,
+    paddingVertical: 32,
     shadowColor: "#c0caea",
-    shadowOpacity: 0.45,
-    shadowOffset: { width: 0, height: 14 },
-    shadowRadius: 26,
+    shadowOpacity: 0.48,
+    shadowOffset: { width: 0, height: 18 },
+    shadowRadius: 34,
     elevation: 6,
     borderWidth: 1,
-    borderColor: "rgba(120, 132, 173, 0.14)",
-    gap: 16
+    borderColor: "rgba(120, 132, 173, 0.16)",
+    gap: 24
   },
-  cardHeader: {
+  timeHeader: {
     width: "100%",
-    marginBottom: 16
+    gap: 8
   },
-  cardTitle: {
+  timeTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: ACCENT_COLOR
+  },
+  timeSubtitle: {
+    fontSize: 14,
+    color: TEXT_SUBTLE
+  },
+  timeBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16
+  },
+  timeBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.6
+  },
+  timeDisplayRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "flex-start",
+    gap: 8,
+    marginTop: 8
+  },
+  timeValue: {
+    fontSize: 64,
+    fontWeight: "700",
+    color: ACCENT_COLOR
+  },
+  timeSeparator: {
+    fontSize: 58,
+    fontWeight: "600",
+    color: ACCENT_COLOR,
+    marginHorizontal: 4
+  },
+  timePeriod: {
     fontSize: 20,
     fontWeight: "700",
-    color: ACCENT_COLOR
+    marginBottom: 10
   },
-  cardSubtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    lineHeight: 20,
-    color: TEXT_SUBTLE
-  },
-  clockFace: {
-    backgroundColor: CLOCK_FACE_COLOR,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#d2daf3",
-    shadowOpacity: 0.75,
-    shadowRadius: 28,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: "rgba(120, 132, 173, 0.16)"
-  },
-  clockOuterWrapper: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24
-  },
-  clockGlow: {
-    position: "absolute",
-    backgroundColor: CLOCK_GLOW_PRIMARY
-  },
-  clockInnerRing: {
-    position: "absolute",
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(92, 108, 255, 0.22)",
-    backgroundColor: CLOCK_FACE_COLOR
-  },
-  auroraCard: {
-    width: "100%",
-    backgroundColor: "rgba(255, 255, 255, 0.78)",
-    borderRadius: 32,
-    paddingHorizontal: 26,
-    paddingVertical: 30,
-    overflow: "hidden",
-    gap: 24,
-    shadowColor: "#b4bedf",
-    shadowOpacity: 0.5,
-    shadowOffset: { width: 0, height: 16 },
-    shadowRadius: 32,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: "rgba(120, 132, 173, 0.18)"
-  },
-  auroraGlowLayer: {
-    position: "absolute",
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    opacity: 0.35
-  },
-  auroraGlowLeft: {
-    top: -120,
-    left: -140,
-    transform: [{ rotate: "15deg" }]
-  },
-  auroraGlowRight: {
-    bottom: -160,
-    right: -120,
-    transform: [{ rotate: "-18deg" }]
-  },
-  auroraHeader: {
-    width: "100%",
-    gap: 4
-  },
-  auroraTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: ACCENT_COLOR
-  },
-  auroraSubtitle: {
-    fontSize: 14,
-    color: TEXT_SUBTLE
-  },
-  auroraClockShell: {
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  auroraDivider: {
-    width: "100%",
-    height: 1,
-    backgroundColor: "rgba(120, 132, 173, 0.22)"
-  },
-  auroraInfoRow: {
+  timeMetaRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
+    marginTop: 24
   },
-  auroraMetaLabel: {
+  timeMetaBlock: {
+    flexShrink: 1,
+    paddingRight: 12
+  },
+  timeMetaLabel: {
     fontSize: 12,
     fontWeight: "600",
     color: TEXT_SUBTLE,
     textTransform: "uppercase",
     letterSpacing: 1
   },
-  auroraMetaValue: {
+  timeMetaValue: {
     marginTop: 4,
     fontSize: 16,
     fontWeight: "600",
     color: ACCENT_COLOR
   },
-  auroraBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: "rgba(92, 108, 255, 0.12)",
+  timeMetaPill: {
     borderWidth: 1,
-    borderColor: "rgba(92, 108, 255, 0.28)"
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.75)"
   },
-  auroraBadgeText: {
+  timeMetaPillText: {
     fontSize: 13,
-    fontWeight: "600",
-    color: PRIMARY_ACCENT
-  },
-  tick: {
-    position: "absolute",
-    width: 2,
-    borderRadius: 2,
-    left: "50%",
-    marginLeft: -1
-  },
-  hourTick: {
-    height: 24,
-    width: 3,
-    backgroundColor: CLOCK_LINE_COLOR,
-    marginLeft: -1.5
-  },
-  minuteTick: {
-    height: 12,
-    backgroundColor: "rgba(27, 34, 64, 0.18)"
-  },
-  hourLabel: {
-    position: "absolute",
-    fontSize: 18,
-    fontWeight: "600",
-    color: ACCENT_COLOR,
-    textAlign: "center",
-    lineHeight: 20
-  },
-  handContainer: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  hand: {
-    width: 6,
-    borderRadius: 6
-  },
-  hourHand: {
-    width: 6,
-    backgroundColor: CLOCK_LINE_COLOR
-  },
-  minuteHand: {
-    width: 4
-  },
-  secondHand: {
-    width: 2
-  },
-  centerOuter: {
-    position: "absolute",
-    width: 16,
-    height: 16,
-    borderRadius: 8
-  },
-  centerInner: {
-    position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: BACKGROUND_COLOR,
-    borderWidth: 1
-  },
-  digitalWrapper: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "center",
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.78)",
-    borderWidth: 1,
-    borderColor: "rgba(120, 132, 173, 0.16)",
-    marginTop: 12
-  },
-  digitalHour: {
-    fontSize: 52,
-    fontWeight: "700",
-    color: ACCENT_COLOR
-  },
-  digitalSeparator: {
-    fontSize: 46,
-    fontWeight: "600",
-    color: ACCENT_COLOR,
-    marginHorizontal: 4,
-    marginBottom: 4
-  },
-  digitalMinute: {
-    fontSize: 52,
-    fontWeight: "700",
-    color: ACCENT_COLOR
-  },
-  digitalPeriod: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: PRIMARY_ACCENT,
-    marginBottom: 10
+    fontWeight: "600"
   },
   navWrapper: {
     flexDirection: "row",
@@ -1057,7 +911,8 @@ const styles = StyleSheet.create({
     textAlign: "center"
   },
   timeSeparator: {
-    fontSize: 24,
+    paddingBottom:22.5,
+    fontSize: 29,
     fontWeight: "700",
     color: ACCENT_COLOR
   },
@@ -1219,295 +1074,6 @@ const styles = StyleSheet.create({
     color: TEXT_MUTED
   }
 });
-
-const AuroraClockCard = ({
-  time,
-  clockRadius,
-  clockSize,
-  hourHandLength,
-  minuteHandLength,
-  secondHandLength,
-  hoursAngle,
-  minutesAngle,
-  secondsAngle,
-  displayHour,
-  minuteText,
-  period,
-  accentHue
-}) => {
-  const accentPrimary = `hsl(${accentHue}, 72%, 58%)`;
-  const accentSecondary = `hsl(${(accentHue + 30) % 360}, 68%, 52%)`;
-  const glowPrimary = `hsla(${accentHue}, 82%, 72%, 0.28)`;
-  const glowSecondary = `hsla(${(accentHue + 20) % 360}, 78%, 70%, 0.24)`;
-  const innerRingColor = `hsla(${accentHue}, 70%, 72%, 0.22)`;
-  const minuteTickColor = "rgba(27, 34, 64, 0.2)";
-
-  const dateLabel = formatFullDate(time);
-  const offsetMinutes = time.getTimezoneOffset();
-  const offsetSign = offsetMinutes <= 0 ? "+" : "-";
-  const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60)
-    .toString()
-    .padStart(2, "0");
-  const offsetRemainder = (Math.abs(offsetMinutes) % 60)
-    .toString()
-    .padStart(2, "0");
-  const offsetText = `UTC${offsetSign}${offsetHours}:${offsetRemainder}`;
-
-  return (
-    <View style={styles.auroraCard}>
-      <View
-        style={[
-          styles.auroraGlowLayer,
-          styles.auroraGlowLeft,
-          { backgroundColor: glowPrimary }
-        ]}
-      />
-      <View
-        style={[
-          styles.auroraGlowLayer,
-          styles.auroraGlowRight,
-          { backgroundColor: glowSecondary }
-        ]}
-      />
-
-      <View style={styles.auroraHeader}>
-        <Text style={styles.auroraTitle}>Current time</Text>
-        <Text style={styles.auroraSubtitle}>
-          Sync across your workspaces
-        </Text>
-      </View>
-
-      <View style={styles.auroraClockShell}>
-        <AnalogClock
-          clockRadius={clockRadius}
-          clockSize={clockSize}
-          hourHandLength={hourHandLength}
-          minuteHandLength={minuteHandLength}
-          secondHandLength={secondHandLength}
-          hoursAngle={hoursAngle}
-          minutesAngle={minutesAngle}
-          secondsAngle={secondsAngle}
-          accentColor={accentPrimary}
-          glowColor={glowPrimary}
-          innerRingColor={innerRingColor}
-          minuteTickColor={minuteTickColor}
-          minuteHandColor={accentPrimary}
-          secondHandColor={accentSecondary}
-        />
-      </View>
-
-      <View style={styles.digitalWrapper}>
-        <Text style={styles.digitalHour}>{displayHour}</Text>
-        <Text style={styles.digitalSeparator}>:</Text>
-        <Text style={styles.digitalMinute}>{minuteText}</Text>
-        <Text
-          style={[
-            styles.digitalPeriod,
-            { color: accentPrimary }
-          ]}
-        >
-          {period}
-        </Text>
-      </View>
-
-      <View style={styles.auroraDivider} />
-
-      <View style={styles.auroraInfoRow}>
-        <View>
-          <Text style={styles.auroraMetaLabel}>Today</Text>
-          <Text style={styles.auroraMetaValue}>{dateLabel}</Text>
-        </View>
-        <View style={styles.auroraBadge}>
-          <Text style={styles.auroraBadgeText}>{offsetText}</Text>
-        </View>
-      </View>
-    </View>
-  );
-};
-
-const AnalogClock = ({
-  clockRadius,
-  clockSize,
-  hourHandLength,
-  minuteHandLength,
-  secondHandLength,
-  hoursAngle,
-  minutesAngle,
-  secondsAngle,
-  accentColor = PRIMARY_ACCENT,
-  glowColor = CLOCK_GLOW_PRIMARY,
-  innerRingColor = "rgba(255, 255, 255, 0.16)",
-  minuteTickColor = "rgba(27, 34, 64, 0.2)",
-  hourHandColor = CLOCK_LINE_COLOR,
-  minuteHandColor = PRIMARY_ACCENT,
-  secondHandColor = SECOND_HAND_COLOR
-}) => {
-  const glowSize = clockSize + 56;
-  const glowRadius = glowSize / 2;
-  const innerSize = clockSize - 36;
-  const innerRadius = innerSize / 2;
-
-  return (
-    <View
-      style={[
-        styles.clockOuterWrapper,
-        { width: glowSize, height: glowSize, borderRadius: glowRadius }
-      ]}
-    >
-      <View
-        style={[
-          styles.clockGlow,
-          {
-            width: glowSize,
-            height: glowSize,
-            borderRadius: glowRadius,
-            backgroundColor: glowColor
-          }
-        ]}
-      />
-      <View
-        style={[
-          styles.clockFace,
-          {
-            width: clockSize,
-            height: clockSize,
-            borderRadius: clockRadius
-          }
-        ]}
-      >
-        <View
-          style={[
-            styles.clockInnerRing,
-            {
-              width: innerSize,
-              height: innerSize,
-              borderRadius: innerRadius,
-              borderColor: innerRingColor
-            }
-          ]}
-        />
-        {TICK_MARKS.map((mark) => {
-          const isHourMark = mark % 5 === 0;
-          return (
-            <View
-              key={`tick-${mark}`}
-              style={[
-                styles.tick,
-                isHourMark ? styles.hourTick : styles.minuteTick,
-                !isHourMark && { backgroundColor: minuteTickColor },
-                {
-                  transform: [
-                    { rotate: `${mark * 6}deg` },
-                    {
-                      translateY: -clockRadius + (isHourMark ? 32 : 28)
-                    }
-                  ]
-                }
-              ]}
-            />
-          );
-        })}
-
-        {HOUR_LABELS.map(({ label, angle }) => {
-          const angleInRadians = (angle * Math.PI) / 180;
-          const distanceFromCenter = clockRadius - 46;
-          const x =
-            clockRadius + Math.cos(angleInRadians) * distanceFromCenter;
-          const y =
-            clockRadius + Math.sin(angleInRadians) * distanceFromCenter;
-          const labelWidth = label.length > 1 ? 32 : 24;
-          const labelHeight = 24;
-
-          return (
-            <Text
-              key={`label-${label}`}
-              style={[
-                styles.hourLabel,
-                {
-                  left: x - labelWidth / 2,
-                  top: y - labelHeight / 2,
-                  width: labelWidth
-                }
-              ]}
-            >
-              {label}
-            </Text>
-          );
-        })}
-
-        <View
-          style={[
-            styles.handContainer,
-            { transform: [{ rotate: `${hoursAngle}deg` }] }
-          ]}
-        >
-          <View
-            style={[
-              styles.hand,
-              styles.hourHand,
-              {
-                height: hourHandLength,
-                backgroundColor: hourHandColor,
-                transform: [{ translateY: -hourHandLength / 2 }]
-              }
-            ]}
-          />
-        </View>
-
-        <View
-          style={[
-            styles.handContainer,
-            { transform: [{ rotate: `${minutesAngle}deg` }] }
-          ]}
-        >
-          <View
-            style={[
-              styles.hand,
-              styles.minuteHand,
-              {
-                height: minuteHandLength,
-                backgroundColor: minuteHandColor,
-                transform: [{ translateY: -minuteHandLength / 2 }]
-              }
-            ]}
-          />
-        </View>
-
-        <View
-          style={[
-            styles.handContainer,
-            { transform: [{ rotate: `${secondsAngle}deg` }] }
-          ]}
-        >
-          <View
-            style={[
-              styles.hand,
-              styles.secondHand,
-              {
-                height: secondHandLength,
-                backgroundColor: secondHandColor,
-                transform: [{ translateY: -secondHandLength / 2 }]
-              }
-            ]}
-          />
-        </View>
-
-        <View
-          style={[
-            styles.centerOuter,
-            { backgroundColor: accentColor }
-          ]}
-        />
-        <View
-          style={[
-            styles.centerInner,
-            { borderColor: accentColor }
-          ]}
-        />
-      </View>
-    </View>
-  );
-};
 
 const AlarmEditorModal = ({
   visible,
@@ -1770,7 +1336,7 @@ const AlarmTab = ({ alarms, onToggleAlarm, onAddAlarm, onEditAlarm }) => {
 };
 
 const TimerTab = () => {
-  const [secondsRemaining, setSecondsRemaining] = useState(5 * 60);
+  const [secondsRemaining, setSecondsRemaining] = useState(10 * 60);
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef(null);
 
@@ -1798,14 +1364,14 @@ const TimerTab = () => {
 
   const handleStartPause = () => {
     if (secondsRemaining === 0) {
-      setSecondsRemaining(5 * 60);
+      setSecondsRemaining(10 * 60);
     }
     setIsRunning((prev) => !prev);
   };
 
   const handleReset = () => {
     clearTimer();
-    setSecondsRemaining(5 * 60);
+    setSecondsRemaining(10 * 60);
     setIsRunning(false);
   };
 
